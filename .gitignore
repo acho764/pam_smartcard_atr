@@ -1,0 +1,27 @@
+# Compiled binaries
+*.so
+smartcard_lock
+
+# Build artifacts
+*.o
+*.a
+
+# Editor files
+*~
+.*.swp
+.*.swo
+
+# IDE files
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup

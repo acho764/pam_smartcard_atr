@@ -1,0 +1,18 @@
+CC = gcc
+CFLAGS = -fPIC -Wall -Wextra -O2 -I/usr/include/PCSC
+LDFLAGS = -shared -lpcsclite
+
+PAM_MODULE = pam_smartcard_atr.so
+PAM_SOURCE = pam_smartcard_atr.c
+
+$(PAM_MODULE): $(PAM_SOURCE)
+	$(CC) $(CFLAGS) -o $(PAM_MODULE) $(PAM_SOURCE) $(LDFLAGS)
+
+install-pam: $(PAM_MODULE)
+	sudo cp $(PAM_MODULE) /lib/x86_64-linux-gnu/security/
+	sudo chmod 644 /lib/x86_64-linux-gnu/security/$(PAM_MODULE)
+
+clean-pam:
+	rm -f $(PAM_MODULE)
+
+.PHONY: install-pam clean-pam

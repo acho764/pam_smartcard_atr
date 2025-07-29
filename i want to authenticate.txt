@@ -1,0 +1,4 @@
+i want to authenticate my system based on smart card id via cpp systemd service which reads smartcard_login.conf file in etc where i put card id and user. it must be event based  │
+│   and use pcscd. Also i want to logs me out if i remove the card.
+
+Create custom PAM module for ATR-based authentication

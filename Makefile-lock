@@ -1,0 +1,21 @@
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -I/usr/include/PCSC
+LDFLAGS = -lpcsclite -lpthread
+
+TARGET = smartcard_lock
+SOURCE = smartcard_lock.cpp
+
+$(TARGET): $(SOURCE)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCE) $(LDFLAGS)
+
+install-lock: $(TARGET)
+	sudo cp $(TARGET) /usr/local/bin/
+	sudo chmod +x /usr/local/bin/$(TARGET)
+	sudo cp smartcard-lock.service /etc/systemd/system/
+	sudo systemctl daemon-reload
+	sudo systemctl enable smartcard-lock.service
+
+clean-lock:
+	rm -f $(TARGET)
+
+.PHONY: install-lock clean-lock
