@@ -15,7 +15,7 @@
 class SmartCardLock {
 private:
     SCARDCONTEXT hContext;
-    std::map<std::string, std::string> cardUserMap;
+    std::map<std::string, std::vector<std::string>> cardUserMap;
     std::string configPath;
     std::map<std::string, bool> userCardPresent;
     bool running;
@@ -54,7 +54,7 @@ public:
             if (colonPos != std::string::npos) {
                 std::string cardId = line.substr(0, colonPos);
                 std::string username = line.substr(colonPos + 1);
-                cardUserMap[cardId] = username;
+                cardUserMap[cardId].push_back(username);
                 userCardPresent[username] = false;
                 syslog(LOG_INFO, "Loaded mapping: card %s -> user %s", 
                        cardId.c_str(), username.c_str());
@@ -158,25 +158,59 @@ public:
         }
     }
 
+    std::vector<std::string> getActiveUsers() {
+        std::vector<std::string> activeUsers;
+        FILE* pipe = popen("loginctl list-sessions --no-legend | awk '{print $3}' | grep -v root | sort -u", "r");
+        
+        if (pipe) {
+            char username[256];
+            while (fgets(username, sizeof(username), pipe)) {
+                username[strcspn(username, "\n")] = 0; // Remove newline
+                if (strlen(username) > 0) {
+                    activeUsers.push_back(std::string(username));
+                }
+            }
+            pclose(pipe);
+        }
+        
+        return activeUsers;
+    }
+
     void handleCardRemoval(const std::string& cardId) {
+        // Check if this card ATR matches any user from config
         auto it = cardUserMap.find(cardId);
         if (it != cardUserMap.end()) {
-            std::string username = it->second;
+            // Get all currently active users
+            std::vector<std::string> activeUsers = getActiveUsers();
             
-            if (userCardPresent[username]) {
-                userCardPresent[username] = false;
-                syslog(LOG_INFO, "Smart card removed for user %s, locking screen", username.c_str());
-                lockUserSession(username);
+            // Find the first active user who can use this card and has it present
+            for (const std::string& configUser : it->second) {
+                // Check if this configured user is currently active
+                for (const std::string& activeUser : activeUsers) {
+                    if (configUser == activeUser && userCardPresent[activeUser]) {
+                        userCardPresent[activeUser] = false;
+                        syslog(LOG_INFO, "Smart card removed for user %s, locking screen", activeUser.c_str());
+                        lockUserSession(activeUser);
+                        
+                        // Mark card as not present for ALL users to prevent duplicate processing
+                        for (const std::string& allConfigUser : it->second) {
+                            userCardPresent[allConfigUser] = false;
+                        }
+                        return; // Exit after locking the first active user
+                    }
+                }
             }
         }
     }
 
     void handleCardInsertion(const std::string& cardId) {
+        // Mark card as present for all users who can use this card
         auto it = cardUserMap.find(cardId);
         if (it != cardUserMap.end()) {
-            std::string username = it->second;
-            userCardPresent[username] = true;
-            syslog(LOG_INFO, "Smart card inserted for user %s", username.c_str());
+            for (const std::string& username : it->second) {
+                userCardPresent[username] = true;
+                syslog(LOG_INFO, "Smart card inserted for user %s", username.c_str());
+            }
         }
     }
 

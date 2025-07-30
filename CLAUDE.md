@@ -240,6 +240,22 @@ The system provides:
 - **Package Optimization** - Removed automatically installed unused packages
 - **Clean Architecture** - Only essential PAM and lock service components remain
 
+## Advanced Authentication Improvements
+
+### 16. Delayed Authentication Implementation
+- **Automatic Card Detection** - PAM module waits 5 seconds for card insertion
+- **Visual Feedback** - Shows "Insert smart card..." message while waiting
+- **Success Notification** - Displays "Smart card detected" when card found
+- **Timeout Handling** - Shows "Card not found" after 5-second timeout
+- **Seamless Experience** - No user interaction required, just insert card
+
+### 17. Multi-User Lock Service Enhancement
+- **Dynamic User Detection** - Service detects currently active users via loginctl
+- **Single User Locking** - Locks only the active user's session, not all configured users
+- **Data Structure Optimization** - Changed from map<string,string> to map<string,vector<string>>
+- **Duplicate Prevention** - Eliminates duplicate log entries for same card removal
+- **Accurate Session Management** - Correctly identifies logged-in user vs configured users
+
 ## Deployment Instructions
 1. Install dependencies: `sudo apt-get install pcscd libpcsclite-dev libpam0g-dev`
 2. Build PAM module: `make -f Makefile-pam && make -f Makefile-pam install-pam`
@@ -248,9 +264,10 @@ The system provides:
 5. Install GDM configuration: `sudo cp gdm-password-atr /etc/pam.d/gdm-password`
 6. Start services and test authentication
 
-## Final User Experience
-- **Insert smart card** → **"Smart card recognized"** → Automatic passwordless login
-- **Remove smart card** → **Immediate screen lock** → Security maintained
-- **Unknown card** → **"Smart card not recognized"** → Falls back to password authentication
-- **Multi-user support** → **User selection dialog** for shared cards
-- **Clean feedback** → **Clear, simple messages** without technical jargon
+## Final User Experience - v2 (Advanced)
+- **Click user (no card)** → **"Insert smart card..."** → Wait 5 seconds for card
+- **Insert card within timeout** → **"Smart card detected"** → Automatic passwordless login  
+- **No card after timeout** → **"Card not found"** → Falls back to password authentication
+- **Remove smart card** → **Immediate screen lock** → Only active user locked
+- **Multi-user support** → **Same card works for multiple accounts** → Dynamic user detection
+- **Clean experience** → **Seamless, automatic** → No manual interaction required

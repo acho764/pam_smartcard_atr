@@ -3,6 +3,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <time.h>
 #include <PCSC/winscard.h>
 
 #define PAM_SM_AUTH
@@ -101,11 +102,82 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         return PAM_AUTH_ERR;
     }
     
-    // Get card ATR
+    // Try to get card ATR, if not present use delayed authentication
     card_atr = get_card_atr();
     if (!card_atr) {
-        syslog(LOG_AUTH | LOG_WARNING, "pam_smartcard_atr: No smart card found for user %s", username);
-        return PAM_AUTH_ERR;
+        // Display waiting message
+        struct pam_conv *conv;
+        retval = pam_get_item(pamh, PAM_CONV, (const void**)&conv);
+        if (retval == PAM_SUCCESS && conv && conv->conv) {
+            char wait_msg[256];
+            snprintf(wait_msg, sizeof(wait_msg), "Insert smart card...");
+            
+            struct pam_message msg;
+            const struct pam_message *msgs[1];
+            struct pam_response *resp = NULL;
+            
+            msg.msg_style = PAM_TEXT_INFO;
+            msg.msg = wait_msg;
+            msgs[0] = &msg;
+            
+            conv->conv(1, msgs, &resp, conv->appdata_ptr);
+            if (resp) {
+                if (resp[0].resp) free(resp[0].resp);
+                free(resp);
+            }
+        }
+
+        // Wait and check for card insertion every 0.5 seconds for up to 5 seconds
+        for (int i = 0; i < 10 && !card_atr; i++) {
+            usleep(500000); // Wait 0.5 seconds
+            card_atr = get_card_atr();
+            
+            if (card_atr && conv && conv->conv) {
+                // Display card detected message
+                char detected_msg[256];
+                snprintf(detected_msg, sizeof(detected_msg), "Smart card detected");
+                
+                struct pam_message msg;
+                const struct pam_message *msgs[1];
+                struct pam_response *resp = NULL;
+                
+                msg.msg_style = PAM_TEXT_INFO;
+                msg.msg = detected_msg;
+                msgs[0] = &msg;
+                
+                conv->conv(1, msgs, &resp, conv->appdata_ptr);
+                if (resp) {
+                    if (resp[0].resp) free(resp[0].resp);
+                    free(resp);
+                }
+                break;
+            }
+        }
+        
+        if (!card_atr) {
+            // Display timeout message
+            if (conv && conv->conv) {
+                char timeout_msg[256];
+                snprintf(timeout_msg, sizeof(timeout_msg), "Card not found");
+                
+                struct pam_message msg;
+                const struct pam_message *msgs[1];
+                struct pam_response *resp = NULL;
+                
+                msg.msg_style = PAM_TEXT_INFO;
+                msg.msg = timeout_msg;
+                msgs[0] = &msg;
+                
+                conv->conv(1, msgs, &resp, conv->appdata_ptr);
+                if (resp) {
+                    if (resp[0].resp) free(resp[0].resp);
+                    free(resp);
+                }
+            }
+            
+            syslog(LOG_AUTH | LOG_INFO, "pam_smartcard_atr: No smart card inserted within timeout for user %s, falling back to password", username);
+            return PAM_AUTH_ERR;
+        }
     }
     
     // Check if ATR matches username
