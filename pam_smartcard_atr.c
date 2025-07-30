@@ -110,10 +110,60 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     
     // Check if ATR matches username
     if (check_atr_user(card_atr, username)) {
+        // Display success message to user
+        char success_msg[256];
+        snprintf(success_msg, sizeof(success_msg), "Smart card recognized");
+        
+        struct pam_message msg;
+        const struct pam_message *msgs[1];
+        struct pam_response *resp = NULL;
+        struct pam_conv *conv;
+        
+        msg.msg_style = PAM_TEXT_INFO;
+        msg.msg = success_msg;
+        msgs[0] = &msg;
+        
+        // Get conversation function and display message
+        retval = pam_get_item(pamh, PAM_CONV, (const void**)&conv);
+        if (retval == PAM_SUCCESS && conv && conv->conv) {
+            conv->conv(1, msgs, &resp, conv->appdata_ptr);
+            if (resp) {
+                if (resp[0].resp) {
+                    free(resp[0].resp);
+                }
+                free(resp);
+            }
+        }
+        
         syslog(LOG_AUTH | LOG_INFO, "pam_smartcard_atr: Smart card authentication successful for user %s", username);
         free(card_atr);
         return PAM_SUCCESS;
     } else {
+        // Display failure message to user
+        char failure_msg[256];
+        snprintf(failure_msg, sizeof(failure_msg), "Smart card not recognized");
+        
+        struct pam_message msg;
+        const struct pam_message *msgs[1];
+        struct pam_response *resp = NULL;
+        struct pam_conv *conv;
+        
+        msg.msg_style = PAM_ERROR_MSG;
+        msg.msg = failure_msg;
+        msgs[0] = &msg;
+        
+        // Get conversation function and display message
+        retval = pam_get_item(pamh, PAM_CONV, (const void**)&conv);
+        if (retval == PAM_SUCCESS && conv && conv->conv) {
+            conv->conv(1, msgs, &resp, conv->appdata_ptr);
+            if (resp) {
+                if (resp[0].resp) {
+                    free(resp[0].resp);
+                }
+                free(resp);
+            }
+        }
+        
         syslog(LOG_AUTH | LOG_WARNING, "pam_smartcard_atr: Smart card authentication failed for user %s (ATR: %s)", username, card_atr);
         free(card_atr);
         return PAM_AUTH_ERR;

@@ -115,7 +115,7 @@ public:
     }
 
     bool isUserLoggedIn(const std::string& username) {
-        std::string checkCmd = "loginctl list-sessions --no-legend | grep " + username + " | grep active";
+        std::string checkCmd = "loginctl list-sessions --no-legend | grep -w " + username + " | grep active";
         FILE* pipe = popen(checkCmd.c_str(), "r");
         bool loggedIn = false;
         
@@ -136,7 +136,7 @@ public:
         }
         
         // Get user's session ID
-        std::string sessionCmd = "loginctl list-sessions --no-legend | grep " + username + " | awk '{print $1}' | head -1";
+        std::string sessionCmd = "loginctl list-sessions --no-legend | grep -w " + username + " | awk '{print $1}' | head -1";
         FILE* pipe = popen(sessionCmd.c_str(), "r");
         
         if (pipe) {
